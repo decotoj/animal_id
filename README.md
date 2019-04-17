@@ -6,6 +6,7 @@ Utilizes structure from PyTorch tutorial here:
 https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
 
 #################################
+
 resize.py
 
 Processes a folder of raw images (usually of relatively high resolution) organized in subfolders by class and resizes them and randomly assigns images to the train, validation or test sets

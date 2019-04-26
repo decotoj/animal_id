@@ -13,9 +13,9 @@ Processes a folder of raw images (usually of relatively high resolution) organiz
 
 #################################
 
-dataLoad_cow.py
+cow_ID_v1.py
 
-Loads the training and validation data sets.  Loads a pre-trained PyTorch model and trains it to perform image classification on the training data set.
+Loads the training and validation data sets.  Loads a pre-trained PyTorch model and trains it to perform image classification on the training data set.  Model is saved for re-use.
 
 #################################
 

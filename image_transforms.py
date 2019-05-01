@@ -26,6 +26,9 @@ def resize_image(img, basewidth):
     img = img.rotate(180) #rotate to keep original orientation
     return img
 
+def flip_image(img):
+    return img.transpose(Image.FLIP_LEFT_RIGHT)
+
 # Experimentally, 0.5-1.5 seems like a reasonable parameter range for these functions
 def contrast_image(img, min_val=0.5):
     contraster = ImageEnhance.Contrast(img)
@@ -83,7 +86,3 @@ def transform_all_images():
         print(i, 'of', len(files), pth)
         img.save(files[i].replace(dataDirectory,pth))
     print('Done Transforming and Assigning Images to Train/Val/Test Sets')
-
-img = Image.open(open(os.getcwd()+"/cow.jpg", "rb"))
-img2 = contrast_image(img)
-img2.show()

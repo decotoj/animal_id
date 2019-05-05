@@ -45,7 +45,26 @@ def sharpen_image(img, min_val=0.5):
     img = sharpener.enhance(min_val+np.random.rand())
     return img
 
-def transform_all_images():
+def augment_train_images():
+    dataDirectory = "images/train" 
+
+    #Get List of All Image Files in Raw Data Directory
+    files = []
+    for root, dirs, file in os.walk(dataDirectory):  
+        for i in range(0,len(file)):
+            files.append(root + '/' + file[i])
+
+    for file_i in files:
+        img = Image.open(file_i)
+        ext = file_i.index('.JPG')
+        brighten_image(img).save(file_i[:ext]+'_BRIGHT.JPG', 'JPEG')
+        sharpen_image(img).save(file_i[:ext]+'_SHARP.JPG', 'JPEG')
+        flip_image(img).save(file_i[:ext]+'_FLIP.JPG', 'JPEG')
+        cutout_image(img).save(file_i[:ext]+'_CUTOUT.JPG', 'JPEG')
+        crop_image(img).save(file_i[:ext]+'_CROP.JPG', 'JPEG')
+        contrast_image(img).save(file_i[:ext]+'_CONTRAST.JPG', 'JPEG')
+
+def resize_all_images_inplace():
     #Processes an input folder of raw images (organized by class) and resizes all images, then randomly 
     #assigns images to either the train, validation, or test set
 

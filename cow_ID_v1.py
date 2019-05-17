@@ -18,13 +18,15 @@ import time
 import os
 import copy
 import helper_functions as hlp
+from itertools import islice
 
 # Constants
-NUMCLASSES = 9 #Number of Classification Classes
-NUM_EPOCHS = 1 #number of training epochs (baseline = 25)
+NUMCLASSES = 12 #Number of Classification Classes
+NUM_EPOCHS = 25 #number of training epochs (baseline = 25)
 MODEL_PATH = 'model.pt' #save path for model file
-CONTINUE_FLAG = 1 #1=load last saved model file and continue training else start fresh from pre-trained pytorch model
+CONTINUE_FLAG = 0 #1=load last saved model file and continue training else start fresh from pre-trained pytorch model
 DATA_DIR = 'data'
+FULL_TRAIN_SIZE = 745 #Photos only
 
 # Set matplotlib interactive mode
 plt.ion()  
@@ -36,6 +38,7 @@ plt.ion()
 
 # Data augmentation and normalization for training
 # Just normalization for validation
+
 data_transforms = {
     'train': transforms.Compose([
         transforms.RandomHorizontalFlip(),
@@ -56,23 +59,27 @@ image_datasets = {x: datasets.ImageFolder(os.path.join(DATA_DIR, x),
                   for x in ['train', 'val']}
 dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=4,
                                              shuffle=True, num_workers=4)
-              for x in ['train', 'val']}
-dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
-class_names = image_datasets['train'].classes
+              for x in ['val']}
 
 # Setup device for processing, default is cpu
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Show examples of training data
-inputs, classes = next(iter(dataloaders['train'])) # Get a batch of training data
-out = torchvision.utils.make_grid(inputs) # Make a grid from batch
-hlp.imshow(out, title=[class_names[x] for x in classes])
-input('press <ENTER> to continue')
+# inputs, classes = next(iter(dataloaders['train'])) # Get a batch of training data
+# out = torchvision.utils.make_grid(inputs) # Make a grid from batch
+# hlp.imshow(out, title=[class_names[x] for x in classes])
+# input('press <ENTER> to continue')
 
 # Function for training model
-def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
+def train_model(model, criterion, optimizer, scheduler, num_samples, num_epochs=25):
     since = time.time()
-
+    subset_indices = np.random.choice(range(len(image_datasets['train'])), num_samples, replace=False)
+    train_fraction = torch.utils.data.random_split(image_datasets['train'], [num_samples, len(image_datasets['train'])-num_samples])[0]
+    dataloaders['train'] = torch.utils.data.DataLoader(train_fraction, batch_size=4,
+    shuffle=True, num_workers=4)
+    dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
+    print(dataset_sizes)
+    class_names = image_datasets['train'].classes
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
 
@@ -126,8 +133,6 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
 
-        print()
-
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
         time_elapsed // 60, time_elapsed % 60))
@@ -136,7 +141,7 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     # load best model weights
     model.load_state_dict(best_model_wts)
 
-    return model
+    return model, best_acc
 
 # Function for displaying a selection of results
 def visualize_model(model, num_images=6):
@@ -187,12 +192,13 @@ exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
 
 # Train and return model
 criterion = nn.CrossEntropyLoss()
-model_ft = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler,
-                       num_epochs=NUM_EPOCHS)
+
+
+model_ft, best_acc = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler, FULL_TRAIN_SIZE, num_epochs=NUM_EPOCHS)
 
 # Save model
 torch.save(model_ft.state_dict(), MODEL_PATH)
 
 # Visualize model
-visualize_model(model_ft)
-input('press <ENTER> to continue')
+# visualize_model(model_ft)
+# input('press <ENTER> to continue')

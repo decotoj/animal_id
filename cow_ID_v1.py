@@ -1,10 +1,6 @@
-# Transfer learning demo for individual cow identification classification problem
-# 4/26/2019
+# Individual Cattle Identification in Pictures Using Sparse Training Data
+# 5/21/2019
 # Jake Decoto and Maggie Engler
-# Initial version based on pytorch tutorial available here
-# https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
-
-from __future__ import print_function, division
 
 import torch
 import torch.nn as nn
@@ -19,21 +15,56 @@ import os
 import copy
 import helper_functions as hlp
 from itertools import islice
+import shutil
+from shutil import copyfile
 
 # Constants
-NUMCLASSES = 12 #Number of Classification Classes
-NUM_EPOCHS = 25 #number of training epochs (baseline = 25)
-MODEL_PATH = 'model.pt' #save path for model file
+MODEL_PATH = 'models/model.pt' #save path for model file
 CONTINUE_FLAG = 0 #1=load last saved model file and continue training else start fresh from pre-trained pytorch model
 DATA_DIR = 'data'
-FULL_TRAIN_SIZE = 745 #Photos only
+
+#Hyperparameters
+NUM_EPOCHS = 1 #number of training epochs (baseline = 25)
+CLASSES = ['000','001','002','003','004','005','006','007','008','009','010','011'] #Which labelled classes to include
+EPOCH_SPLIT = 190512 #YYMMDD epoch to split data between train (everything prior) and val/test (everything at or after epoch) 
+VAL_TEST_SPLIT = 1 #Fraction of data in val/test that is assigned to val (1=All val, 0 = All test)
+
+#NOTE: It should be OK to not have a test set now, (i.e. VAL_TEST_SPLIT=1) since we can collect more data later to test our final model(s)
+#against.  Also, for now I'd reccommend we use EPOCH_SPLI=190512 (May 12th) to ensure that all classes have data in both the train and val sets.
+
+#Purge and rebuild temp data directory
+try:
+    shutil.rmtree('tmp')
+except:
+    pass
+os.mkdir('tmp')
+for x in ['train', 'val', 'test']:
+    os.mkdir('tmp/' + x)
+    for c in CLASSES:
+        os.mkdir('tmp/' + x + '/' + c)
+
+#Split data into train/val/test in the tmp directory
+for root, dirs, file in os.walk(DATA_DIR):
+    if '/' in root:
+        c = root.split('/')[1] #class folder
+        if c in CLASSES:
+            for i in range(0,len(file)):
+                if int(file[i][0:6]) < EPOCH_SPLIT: #assign to train set
+                    destination = 'tmp/train/'
+                else: #assign to val or test set
+                    rand = np.random.uniform(0,1.0)
+                    if rand < VAL_TEST_SPLIT: 
+                        destination = 'tmp/val/'
+                    else:
+                        destination = 'tmp/test/'
+                copyfile(root + '/' + file[i], destination + root.split('/')[1] + '/' + file[i])
 
 # Set matplotlib interactive mode
 plt.ion()  
 
 # NOTE: Per Pytorch documentation, pretrained Pytorch models (resnet18, alexnet, squeezenet, 
 # vgg15, densenet, inception, googlenet) assume images of size (3,H,W) where H and W are at 
-# least 224.  Images should be loaded in ragne of [0,1] and normalized using mean = [0.485, 
+# least 224.  Images should be loaded in range of [0,1] and normalized using mean = [0.485, 
 # 0.456, 0.406] and std = [0.229, 0.224, 0.225]
 
 # Data augmentation and normalization for training
@@ -54,12 +85,12 @@ data_transforms = {
 }
 
 # Load Data and Apply Augmentation/Normalization
-image_datasets = {x: datasets.ImageFolder(os.path.join(DATA_DIR, x),
+image_datasets = {x: datasets.ImageFolder(os.path.join('tmp', x),
                                           data_transforms[x])
                   for x in ['train', 'val']}
 dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=4,
                                              shuffle=True, num_workers=4)
-              for x in ['val']}
+              for x in ['train', 'val']}
 
 # Setup device for processing, default is cpu
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -71,12 +102,8 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # input('press <ENTER> to continue')
 
 # Function for training model
-def train_model(model, criterion, optimizer, scheduler, num_samples, num_epochs=25):
+def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     since = time.time()
-    subset_indices = np.random.choice(range(len(image_datasets['train'])), num_samples, replace=False)
-    train_fraction = torch.utils.data.random_split(image_datasets['train'], [num_samples, len(image_datasets['train'])-num_samples])[0]
-    dataloaders['train'] = torch.utils.data.DataLoader(train_fraction, batch_size=4,
-    shuffle=True, num_workers=4)
     dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
     print(dataset_sizes)
     class_names = image_datasets['train'].classes
@@ -174,7 +201,7 @@ def visualize_model(model, num_images=6):
 # Initialize model
 model_ft = models.resnet18(pretrained=True)
 num_ftrs = model_ft.fc.in_features
-model_ft.fc = nn.Linear(num_ftrs, NUMCLASSES)
+model_ft.fc = nn.Linear(num_ftrs, len(CLASSES))
 
 # Continue from last saved model
 if CONTINUE_FLAG == 1: 
@@ -193,8 +220,7 @@ exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
 # Train and return model
 criterion = nn.CrossEntropyLoss()
 
-
-model_ft, best_acc = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler, FULL_TRAIN_SIZE, num_epochs=NUM_EPOCHS)
+model_ft, best_acc = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=NUM_EPOCHS)
 
 # Save model
 torch.save(model_ft.state_dict(), MODEL_PATH)

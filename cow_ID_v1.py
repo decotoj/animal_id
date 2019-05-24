@@ -37,7 +37,7 @@ NUM_FREEZE = 1000 #Number of layers for (set to large number, like 1000 if desir
 
 #Hyperparameters - Optimizer
 LEARNING_RATE = 1e-4 #learning rate
-WEIGHT_DECAY = 1e-5 #weight decay (L2 penalty)
+WEIGHT_DECAY = 0 #weight decay (L2 penalty)
 OPTIMIZER = 'SGD' #Optimizer (Choices: 'ADAM', 'SGD')
 SGD_SETTINGS = [True, 0.9] #For SGD optimizer only use nesterov (True or False) and momentum value (0-1)
 LR_DECAY_FACTOR = 0.1 #Factor by which learning rate decay will take place.  Factor of LR_DECAY_FACTOR every LR_DECAY_EPOCHS  epochs.

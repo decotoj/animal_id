@@ -22,12 +22,31 @@ from shutil import copyfile
 MODEL_PATH = 'models/model.pt' #save path for model file
 CONTINUE_FLAG = 0 #1=load last saved model file and continue training else start fresh from pre-trained pytorch model
 DATA_DIR = 'data'
+EVAL_FLAG = 0 #If set to 1 perform eval on validation set only, do not train model (CONTINUE_FLAG must also be set to 1)
 
 #Hyperparameters
-NUM_EPOCHS = 1 #number of training epochs (baseline = 25)
-CLASSES = ['000','001','002','003','004','005','006','007','008','009','010','011'] #Which labelled classes to include
+NUM_EPOCHS = 50 #number of training epochs (baseline = 25)
+CLASSES = ['004','005','006'] #['000','001','002','003','004','005','006','007','008','009','010','011'] #Which labelled classes to include
 EPOCH_SPLIT = 190512 #YYMMDD epoch to split data between train (everything prior) and val/test (everything at or after epoch) 
 VAL_TEST_SPLIT = 1 #Fraction of data in val/test that is assigned to val (1=All val, 0 = All test)
+
+#Hyperpareters - Network
+PRETRAIN_NET = 'ALEX' #Pretrained network to use for transfer learning (Choices: 'RES', 'ALEX', 'VGG')
+FREEZE_PRIOR = True #Freeze parameters of pre-trained network (True or False), and only learn weights for added layer(s)
+NUM_FREEZE = 1000 #Number of layers for (set to large number, like 1000 if desiring to freeze all pretrained layers)
+
+#Hyperparameters - Optimizer
+LEARNING_RATE = 1e-4 #learning rate
+WEIGHT_DECAY = 1e-5 #weight decay (L2 penalty)
+OPTIMIZER = 'SGD' #Optimizer (Choices: 'ADAM', 'SGD')
+SGD_SETTINGS = [True, 0.9] #For SGD optimizer only use nesterov (True or False) and momentum value (0-1)
+LR_DECAY_FACTOR = 0.1 #Factor by which learning rate decay will take place.  Factor of LR_DECAY_FACTOR every LR_DECAY_EPOCHS  epochs.
+LR_DECAY_EPOCHS = 7 
+
+#Hyperpareters - Data Augmentation at Training Time
+PROB_HORIZ = 0.5 #Probability of horizontal flip
+PROB_GRAY = 0.5 #Probability of transormation to grayscale
+COLOR_JITTER = [0.25, 0.25, 0.25, 0.25] #Random color jitter settings [brightness, contrast, saturation, hue] allowable rescaling ranges 0=Full, 1=NoChangeAllowed
 
 #NOTE: It should be OK to not have a test set now, (i.e. VAL_TEST_SPLIT=1) since we can collect more data later to test our final model(s)
 #against.  Also, for now I'd reccommend we use EPOCH_SPLI=190512 (May 12th) to ensure that all classes have data in both the train and val sets.
@@ -67,12 +86,13 @@ plt.ion()
 # least 224.  Images should be loaded in range of [0,1] and normalized using mean = [0.485, 
 # 0.456, 0.406] and std = [0.229, 0.224, 0.225]
 
-# Data augmentation and normalization for training
+# Data augmentation and normalization for training (randome parameters will be different at each training epoch)
 # Just normalization for validation
-
 data_transforms = {
     'train': transforms.Compose([
-        transforms.RandomHorizontalFlip(),
+        transforms.RandomHorizontalFlip(PROB_HORIZ),
+        transforms.RandomGrayscale(PROB_GRAY),
+        transforms.ColorJitter(COLOR_JITTER[0], COLOR_JITTER[1], COLOR_JITTER[2], COLOR_JITTER[3]),
         transforms.Resize(224),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
@@ -102,7 +122,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # input('press <ENTER> to continue')
 
 # Function for training model
-def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
+def train_model(model, criterion, optimizer, scheduler, EVAL_FLAG, num_epochs=25):
     since = time.time()
     dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
     print(dataset_sizes)
@@ -110,12 +130,16 @@ def train_model(model, criterion, optimizer, scheduler, num_epochs=25):
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
 
+    phases = ['train', 'val']
+    if EVAL_FLAG == 1:
+        phases = ['val']
+
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
 
         # Each epoch has a training and validation phase
-        for phase in ['train', 'val']:
+        for phase in phases:
             if phase == 'train':
                 scheduler.step()
                 model.train()  # Set model to training mode
@@ -198,10 +222,38 @@ def visualize_model(model, num_images=6):
                     return
         model.train(mode=was_training)
 
-# Initialize model
-model_ft = models.resnet18(pretrained=True)
-num_ftrs = model_ft.fc.in_features
-model_ft.fc = nn.Linear(num_ftrs, len(CLASSES))
+def Freeze_Params(m):
+    num_layers = 0
+    for param in m.parameters(): 
+        num_layers += 1
+    cnt = 0
+    for param in m.parameters():     
+        if cnt == NUM_FREEZE:
+            break
+        print('FREEZING LAYER', cnt+1, 'of', num_layers)
+        param.requires_grade = False
+        cnt += 1
+    return m
+
+# Initialize model and replace last layer w/ new fully connected layer
+if PRETRAIN_NET == 'RES':
+    model_ft = models.resnet18(pretrained=True)
+    if FREEZE_PRIOR == True:
+        model_ft = Freeze_Params(model_ft)
+    num_ftrs = model_ft.fc.in_features
+    model_ft.fc = nn.Linear(num_ftrs, len(CLASSES))
+elif PRETRAIN_NET == 'ALEX':
+    model_ft = models.alexnet(pretrained=True) 
+    if FREEZE_PRIOR == True:
+        model_ft = Freeze_Params(model_ft)
+    num_ftrs = model_ft.classifier[6].in_features
+    model_ft.classifier[6] = nn.Linear(num_ftrs, len(CLASSES))
+elif PRETRAIN_NET == 'VGG':
+    model_ft = models.vgg19(pretrained=True)
+    if FREEZE_PRIOR == True:
+        model_ft = Freeze_Params(model_ft)
+    num_ftrs = model_ft.classifier[6].in_features
+    model_ft.classifier[6] = nn.Linear(num_ftrs, len(CLASSES))
 
 # Continue from last saved model
 if CONTINUE_FLAG == 1: 
@@ -211,16 +263,19 @@ if CONTINUE_FLAG == 1:
 # Assign model to device (CPU if local)
 model_ft = model_ft.to(device)
 
-# Set up optimize (note: all parameters are being optimized) 
-optimizer_ft = optim.SGD(model_ft.parameters(), lr=0.001, momentum=0.9)
+# Set up optimize
+if OPTIMIZER == 'SGD':
+    optimizer_ft = optim.SGD(model_ft.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY, momentum=SGD_SETTINGS[1], nesterov=SGD_SETTINGS[0])
+elif OPTIMIZER == 'ADAM':
+    optimizer_ft = optim.Adam(model_ft.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 
 # Setup learning rate decay schedule (note: LR by a factor of 0.1 every 7 epochs)
-exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
+exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=LR_DECAY_EPOCHS, gamma=LR_DECAY_FACTOR)
 
 # Train and return model
 criterion = nn.CrossEntropyLoss()
 
-model_ft, best_acc = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler, num_epochs=NUM_EPOCHS)
+model_ft, best_acc = train_model(model_ft, criterion, optimizer_ft, exp_lr_scheduler, EVAL_FLAG, num_epochs=NUM_EPOCHS)
 
 # Save model
 torch.save(model_ft.state_dict(), MODEL_PATH)

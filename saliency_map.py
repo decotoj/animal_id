@@ -5,11 +5,11 @@ import random
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter1d
 import matplotlib.pyplot as plt
-#from cs231n.image_utils import SQUEEZENET_MEAN, SQUEEZENET_STD
 from PIL import Image
 from torchvision import datasets, models, transforms
 import os
 import torch.nn as nn
+from scipy import ndimage
 
 #matplotlib inline
 plt.rcParams['figure.figsize'] = (10.0, 8.0) # set default size of plots
@@ -17,11 +17,9 @@ plt.rcParams['image.interpolation'] = 'nearest'
 plt.rcParams['image.cmap'] = 'gray'
 
 # Constants
-NUMCLASSES = 4 #Number of Classification Classes
-NUM_EPOCHS = 2 #number of training epochs (baseline = 25)
-MODEL_PATH = 'models/model3.pt' #save path for model file
-CONTINUE_FLAG = 1 #1=load last saved model file and continue training else start fresh from pre-trained pytorch model
-DATA_DIR = 'data3'
+NUMCLASSES = 12 #Number of Classification Classes
+MODEL_PATH = 'models/model_res_freeze58_aug2hf.pt' #save path for model file
+DATA_DIR = 'tmp'
 BATCH_SIZE = 4
 
 # Setup device for processing, default is cpu
@@ -42,7 +40,6 @@ model = model.to(device)
 # Just normalization for validation
 data_transforms = {
     'train': transforms.Compose([
-        transforms.RandomHorizontalFlip(),
         transforms.Resize(224),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
@@ -63,16 +60,6 @@ dataloaders = {x: torch.utils.data.DataLoader(image_datasets[x], batch_size=BATC
               for x in ['train', 'val']}
 dataset_sizes = {x: len(image_datasets[x]) for x in ['train', 'val']}
 class_names = image_datasets['train'].classes
-
-# def preprocess(img, size=224):
-#     transform = T.Compose([
-#         T.Resize(size),
-#         T.ToTensor(),
-#         T.Normalize(mean=SQUEEZENET_MEAN.tolist(),
-#                     std=SQUEEZENET_STD.tolist()),
-#         T.Lambda(lambda x: x[None]),
-#     ])
-#     return transform(img)
 
 def compute_saliency_maps(X, y, model):
     """
@@ -136,13 +123,18 @@ def show_saliency_maps(X, y):
     N = X.shape[0]
     for i in range(N):
         plt.subplot(2, N, i + 1)
-        plt.imshow(X[i].detach().numpy().swapaxes(0,2))
+        rotated_img = ndimage.rotate(X[i].detach().numpy().swapaxes(0,2), 90)
+        plt.imshow(rotated_img)
         plt.axis('off')
         plt.title(class_names[y[i]])
         plt.subplot(2, N, N + i + 1)
         plt.imshow(saliency[i], cmap=plt.cm.hot)
         plt.axis('off')
-        plt.gcf().set_size_inches(12, 5)
+        plt.gcf().set_size_inches(12, 8)
+
+        print('shapes', rotated_img.shape, saliency[i].shape)
+        # print(max(rotated_img[0][0]))
+
     plt.show()
 
 for inputs, labels in dataloaders['val']:

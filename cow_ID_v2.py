@@ -21,7 +21,7 @@ import gc
 
 # Constants
 #MODEL_PATH = 'models/model_base.pt' #save path for model file
-CONTINUE_FLAG = 0 #0=start from scratch, 1=load last saved model file and continue training, 2=load saved model and evaluate plus display extra stats/plots
+CONTINUE_FLAG = 1 #0=start from scratch, 1=load last saved model file and continue training, 2=load saved model and evaluate plus display extra stats/plots
 DATA_DIR = 'data'
 
 #Hyperparameters
@@ -54,7 +54,7 @@ LR_DECAY_EPOCHS = 8
 def main(PRETRAIN_NET, MODEL_PATH, FREEZE_PRIOR, NUM_FREEZE, PROB_HORIZ, PROB_GRAY, COLOR_JITTER, WEIGHT_DECAY):
 
     #Read the contents of this file as a quick way of getting the settings so they can be saved along with the model
-    with open('cow_ID_v1.py', 'r') as f:
+    with open('cow_ID_v2.py', 'r') as f:
         ln = f.readlines()
     with open(MODEL_PATH + '_log.txt', 'w') as f:
         ln.append('##################################')
@@ -145,6 +145,8 @@ def main(PRETRAIN_NET, MODEL_PATH, FREEZE_PRIOR, NUM_FREEZE, PROB_HORIZ, PROB_GR
             num_epochs = 1
             Class_Correct = [0]*len(CLASSES)
             Class_Count = [0]*len(CLASSES)
+            Class_Pred = [[0,0,0,0,0,0,0,0,0,0,0,0] for x in range(len(CLASSES))]
+            #Class_Pred = ['']*len(CLASSES)
 
         for epoch in range(num_epochs):
             print('Epoch {}/{}'.format(epoch, num_epochs - 1))
@@ -181,10 +183,11 @@ def main(PRETRAIN_NET, MODEL_PATH, FREEZE_PRIOR, NUM_FREEZE, PROB_HORIZ, PROB_GR
                             loss.backward()
                             optimizer.step()
 
-                    #If Evaluaton Mode Only then Save Class Accuracy Stats
+                    #If In Evaluaton Mode Save Class Accuracy Stats
                     if EVAL_FLAG == 1:
                         for i in range(0,len(preds)):
                             Class_Count[labels[i]]+=1
+                            Class_Pred[int(labels[i])][int(preds[i])] += 1
                             if preds[i] == labels[i]:
                                 Class_Correct[labels[i]]+=1
 
@@ -197,6 +200,7 @@ def main(PRETRAIN_NET, MODEL_PATH, FREEZE_PRIOR, NUM_FREEZE, PROB_HORIZ, PROB_GR
                 if EVAL_FLAG == 1:
                     for k in range(0,len(CLASSES)):
                         print('Class', CLASSES[k], ',Correct Percent:', round(Class_Correct[k]/Class_Count[k]*100,1), ', #: ', Class_Count[k])
+                        print('    ', Class_Pred[k])
 
                 epoch_loss = running_loss / dataset_sizes[phase]
                 epoch_acc = running_corrects.double() / dataset_sizes[phase]
@@ -291,6 +295,8 @@ def main(PRETRAIN_NET, MODEL_PATH, FREEZE_PRIOR, NUM_FREEZE, PROB_HORIZ, PROB_GR
         num_ftrs = model_ft.classifier[6].in_features
         model_ft.classifier[6] = nn.Linear(num_ftrs, len(CLASSES))
 
+    #print(model_ft) #print model architecture
+
     # Continue from last saved model
     if CONTINUE_FLAG != 0: 
         print('Loading Saved Model: ', MODEL_PATH)
@@ -338,23 +344,21 @@ if __name__ == "__main__":
 
     # main('RES', 'models/model_res_freeze58_aug1.pt', True, 58, 0.5, 0.25, [0.5, 0.5, 0.5, 0.5], 0) #DONE (62 layers total)
 
-    main('RES', 'models/model_res_freeze58_aug2hf.pt', True, 58, 0.5, 0, [1, 1, 1, 0], 0) #DONE (62 layers total)
+    main('RES', 'models/model_res_freeze58_aug2hf.pt', True, 58, 0.5, 0, [1, 1, 1, 0], 0) #DONE (62 layers total) ###BEST
 
     # main('RES', 'models/model_res_freeze58_aug3gs.pt', True, 58, 0, 0.25, [1, 1, 1, 0], 0) #DONE (62 layers total)
 
     # main('RES', 'models/model_res_freeze58_aug4cj.pt', True, 58, 0, 0, [0.5, 0.5, 0.5, 0.5], 0) #DONE (62 layers total)
 
-    # main('RES', 'models/model_res_freeze58_aug2hf_opt1.pt', True, 58, 0.5, 0, [1, 1, 1, 0], 1e-5) #DONE (62 layers total)
+    # main('RES', 'models/model_res_freeze58_aug2hf_opt1.pt', True, 58, 0.5, 0, [1, 1, 1, 0], 1e-5) #DONE (62 layers total) 
 
-    # main('RES', 'models/model_res_freeze58_aug2hf_opt2.pt', True, 58, 0.5, 0, [1, 1, 1, 0], 1e-4) #(62 layers total)
-
-    # main('RES', 'models/model_res_freeze58_aug2hf_opt3.pt', True, 58, 0.5, 0, [1, 1, 1, 0], 1e-3) #(62 layers total)
+    #main('RES', 'models/model_res_freeze58_aug2hf_opt2.pt', True, 58, 0.5, 0, [1, 1, 1, 0], 1e-4) #(62 layers total)
 
     # main('ALEX', 'models/model_alex.pt', True, 1000, 0, 0, [1, 1, 1, 0], 0) #DONE
 
     # main('ALEX', 'models/model_alex_unfreeze.pt', False, 1000, 0, 0, [1, 1, 1, 0], 0) #DONE
 
-    # main('ALEX', 'models/model_alex_freeze8.pt', True, 8, 0, 0, [1, 1, 1, 0], 0) #DONE (16 layers total)
+    #main('ALEX', 'models/model_alex_freeze8.pt', True, 8, 0, 0, [1, 1, 1, 0], 0) #DONE (16 layers total)
 
     # main('VGG', 'models/model_vgg.pt', True, 1000, 0, 0, [1, 1, 1, 0], 0)
 

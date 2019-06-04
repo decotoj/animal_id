@@ -94,7 +94,7 @@ def plot_cumsum(evals, filename, alpha=0.9):
     
 
 def augment_train_images(operations, basewidth=400):
-    dataDirectory = "data/train" 
+    dataDirectory = "test_tmp" 
 
     #Get List of All Image Files in Raw Data Directory
     files = []
@@ -103,8 +103,11 @@ def augment_train_images(operations, basewidth=400):
             files.append(root + '/' + file[i])
 
     for file_i in files:
-        #if (file_i.count('_') > 1) or (file_i.count('_') > 0 and 'K' in file_i):
-        #    pass
+        
+        #Only augment the data prior to 190512 (aka: the training data)
+        if int(file_i.split('/')[-1][0:6]) >= 190512: #assign to train set
+            continue
+
         img = Image.open(file_i)
         try:
             ext = file_i.index('.JPG')
@@ -133,46 +136,46 @@ def augment_train_images(operations, basewidth=400):
                 contrast = resize_image(contrast_image(img, j), basewidth)
                 contrast.save(file_i[:ext]+'_CONTRAST.JPG', 'JPEG')
 
-def split_train_val_test():
-    #Processes an input folder of raw images (organized by class) and resizes all images, then randomly 
-    #assigns images to either the train, validation, or test set
+# def split_train_val_test():
+#     #Processes an input folder of raw images (organized by class) and resizes all images, then randomly 
+#     #assigns images to either the train, validation, or test set
 
-    #Relative path to folder with raw data
-    #Data assumed to be organized into subfolder by class (ex: 'data/raw/001', 'data/raw/002')
-    dataDirectory = "images" 
-    train_val_test_Directory = ["data/train", "data/val", "data/test"]
-    train_val_test_ratios = [0.8, 0.1, 0.1]
-    BASEWIDTH = 400 #Width for resized images (aspect ratio will be kept the same)
+#     #Relative path to folder with raw data
+#     #Data assumed to be organized into subfolder by class (ex: 'data/raw/001', 'data/raw/002')
+#     dataDirectory = "data_aug1" 
+#     train_val_test_Directory = ["data/train", "data/val", "data/test"]
+#     train_val_test_ratios = [0.8, 0.1, 0.1]
+#     BASEWIDTH = 400 #Width for resized images (aspect ratio will be kept the same)
 
-    #Get List of All Image Files in Raw Data Directory
-    files = []
-    for root, dirs, file in os.walk("data/train"):  
-        for i in range(0,len(file)):
-            files.append(root + '/' + file[i])
-            print(Image.open(files[i]).size)
-    print('Number of Images:', len(files))
+#     #Get List of All Image Files in Raw Data Directory
+#     files = []
+#     for root, dirs, file in os.walk("data/train"):  
+#         for i in range(0,len(file)):
+#             files.append(root + '/' + file[i])
+#             print(Image.open(files[i]).size)
+#     print('Number of Images:', len(files))
 
-    #Purge Current Train/Val/Test Directories
-    for path in train_val_test_Directory:
-        for root, dirs, file in os.walk(path):  
-            for i in range(0,len(file)):
-                os.remove(root + '/' + file[i])
+#     #Purge Current Train/Val/Test Directories
+#     for path in train_val_test_Directory:
+#         for root, dirs, file in os.walk(path):  
+#             for i in range(0,len(file)):
+#                 os.remove(root + '/' + file[i])
 
-    #Step Through and Resize All of The Images 
-    for i in range(len(files)):
-        img = Image.open(files[i])
-        img = resize_image(img, BASEWIDTH)
+#     #Step Through and Resize All of The Images 
+#     for i in range(len(files)):
+#         img = Image.open(files[i])
+#         img = resize_image(img, BASEWIDTH)
         
-        rand = np.random.uniform(0,1.0)
+#         rand = np.random.uniform(0,1.0)
         
-        if rand<train_val_test_ratios[0]:
-            pth = train_val_test_Directory[0]
-        elif rand<(train_val_test_ratios[0] + train_val_test_ratios[1]):
-            pth = train_val_test_Directory[1]
-        else:
-            pth = train_val_test_Directory[2]
-        print(i, 'of', len(files), pth)
-        img.save(files[i].replace(dataDirectory,pth))
-    print('Done Transforming and Assigning Images to Train/Val/Test Sets')
+#         if rand<train_val_test_ratios[0]:
+#             pth = train_val_test_Directory[0]
+#         elif rand<(train_val_test_ratios[0] + train_val_test_ratios[1]):
+#             pth = train_val_test_Directory[1]
+#         else:
+#             pth = train_val_test_Directory[2]
+#         print(i, 'of', len(files), pth)
+#         img.save(files[i].replace(dataDirectory,pth))
+#     print('Done Transforming and Assigning Images to Train/Val/Test Sets')
 
 augment_train_images('ALL')

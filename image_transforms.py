@@ -34,25 +34,35 @@ def flip_image(img):
 # Experimentally, 0.5-1.5 seems like a reasonable parameter range for these functions
 def contrast_image(img, min_val=0.5):
     contraster = ImageEnhance.Contrast(img)
-    img = contraster.enhance(min_val+np.random.rand())
+    img = contraster.enhance(min_val)
+    #img = contraster.enhance(min_val+np.random.rand())
     return img
 
 def brighten_image(img, min_val=0.5):
     brightener = ImageEnhance.Brightness(img)
-    img = brightener.enhance(min_val+np.random.rand())
+    img = brightener.enhance(min_val)
+    #img = brightener.enhance(min_val+np.random.rand())
     return img
 
 def sharpen_image(img, min_val=0.5):
     sharpener = ImageEnhance.Brightness(img)
-    img = sharpener.enhance(min_val+np.random.rand())
+    img = sharpener.enhance(min_val)
+    #img = sharpener.enhance(min_val+np.random.rand())
     return img
 
-def get_eigenvalues(dataDirectory="data/train"):
+def get_eigenvalues(transforms=[], dataDirectory="data/train"):
     #Get List of All Image Files in Raw Data Directory
     files = []
-    for root, dirs, file in os.walk(dataDirectory):  
-        for i in range(0,len(file)):
-            files.append(root + '/' + file[i])
+
+    if transforms == []:
+        for root, dirs, file in os.walk(dataDirectory):  
+            for i in range(0,len(file)):
+                    files.append(root + '/' + file[i])
+    else:
+        for root, dirs, file in os.walk(dataDirectory):  
+            for i in range(0,len(file)):
+                if np.any([(t in file[i]) for t in transforms]):
+                    files.append(root + '/' + file[i])
     
     X = np.asarray(Image.open(files[0])).reshape((360000,1))
     for file_i in range(1, len(files)):
@@ -75,7 +85,6 @@ def plot_cumsum(evals, filename, alpha=0.9):
     tot = np.sum(evals)
     y = [float(i)/tot for i in np.cumsum(evals)]
     pcs = np.argmax([int(j >= alpha) for j in y])
-    print(y)
     plt.plot(x, y)
     plt.ylabel('Percentage of Variance Explained')
     plt.xlabel('Number of Principal Components')
@@ -94,19 +103,22 @@ def augment_train_images(operations, basewidth=400):
             files.append(root + '/' + file[i])
 
     for file_i in files:
-        if file_i.count('_') > 1:
-            pass
+        #if (file_i.count('_') > 1) or (file_i.count('_') > 0 and 'K' in file_i):
+        #    pass
         img = Image.open(file_i)
         try:
             ext = file_i.index('.JPG')
         except:
             ext = file_i.index('.jpg')
         if 'BRIGHT' in operations or operations == 'ALL':
-            bright = resize_image(brighten_image(img), basewidth)
-            bright.save(file_i[:ext]+'_BRIGHT.JPG', 'JPEG')
+            # Trying out different parameters
+            for j in [1.5]:
+                bright = resize_image(brighten_image(img, j), basewidth)
+                bright.save(file_i[:ext]+'_BRIGHT.JPG', 'JPEG')
         if 'SHARP' in operations or operations == 'ALL':
-            sharp = resize_image(sharpen_image(img), basewidth)
-            sharp.save(file_i[:ext]+'_SHARP.JPG', 'JPEG')
+            for j in [1.5]:
+                sharp = resize_image(sharpen_image(img, j), basewidth)
+                sharp.save(file_i[:ext]+'_SHARP.JPG', 'JPEG')
         if 'FLIP' in operations or operations == 'ALL':
             flipped = resize_image(flip_image(img), basewidth)
             flipped.save(file_i[:ext]+'_FLIP.JPG', 'JPEG')
@@ -117,8 +129,9 @@ def augment_train_images(operations, basewidth=400):
             cropped = resize_image(crop_image(img), basewidth)
             cropped.save(file_i[:ext]+'_CROP.JPG', 'JPEG')
         if 'CONTRAST' in operations or operations == 'ALL':
-            contrast = resize_image(contrast_image(img), basewidth)
-            contrast.save(file_i[:ext]+'_CONTRAST.JPG', 'JPEG')
+            for j in [1.5]:
+                contrast = resize_image(contrast_image(img, j), basewidth)
+                contrast.save(file_i[:ext]+'_CONTRAST.JPG', 'JPEG')
 
 def split_train_val_test():
     #Processes an input folder of raw images (organized by class) and resizes all images, then randomly 
@@ -162,3 +175,4 @@ def split_train_val_test():
         img.save(files[i].replace(dataDirectory,pth))
     print('Done Transforming and Assigning Images to Train/Val/Test Sets')
 
+augment_train_images('ALL')

@@ -22,10 +22,10 @@ import gc
 # Constants
 #MODEL_PATH = 'models/model_base.pt' #save path for model file
 CONTINUE_FLAG = 1 #0=start from scratch, 1=load last saved model file and continue training, 2=load saved model and evaluate plus display extra stats/plots
-DATA_DIR = 'data'
+DATA_DIR = 'data_aug1' #'data'
 
 #Hyperparameters
-NUM_EPOCHS = 50 #number of training epochs (baseline = 25)
+NUM_EPOCHS = 1 #number of training epochs (baseline = 25)
 CLASSES = ['000','001','002','003','004','005','006','007','008','009','010','011'] #Which labelled classes to include
 EPOCH_SPLIT = 190512 #YYMMDD epoch to split data between train (everything prior) and val/test (everything at or after epoch) 
 VAL_TEST_SPLIT = 1 #Fraction of data in val/test that is assigned to val (1=All val, 0 = All test)
